@@ -1,0 +1,13 @@
+aienv/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+results/raw/
+results/plots/
+results/tables/*.csv
+
+workloads/bert_classifier/artifacts/model/model.safetensors
+workloads/bert_classifier/onnx_export/bert_classifier.onnx
+workloads/bert_classifier/triton/model_repository/bert_classifier/1/model.onnx

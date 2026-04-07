@@ -1,0 +1,4 @@
+# Phase A1 benchmark configuration for bert_classifier
+workload: bert_classifier
+scenario: baseline_fastapi
+status: stub
