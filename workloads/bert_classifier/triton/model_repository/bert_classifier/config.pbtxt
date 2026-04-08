@@ -1,8 +1,6 @@
 # Triton model config for the exported RuBERT sequence-classification ONNX model.
-# This keeps the setup intentionally simple for Phase A1:
-# - ONNX Runtime backend
-# - explicit tokenizer-side batching outside Triton
-# - no dynamic batching yet, so later Triton batching experiments are easier to isolate
+# Phase A1 now enables a first conservative dynamic-batching setup so we can
+# compare Triton scheduling against the earlier no-batching baseline.
 
 name: "bert_classifier"
 backend: "onnxruntime"
@@ -39,7 +37,11 @@ version_policy: { latest { num_versions: 1 } }
 # The exported model uses dynamic sequence length, so Triton sees:
 # - batch dimension handled by max_batch_size
 # - token dimension left dynamic via dims: [ -1 ]
-#
-# Dynamic batching is intentionally omitted here for Phase A1.
-# When Triton benchmarking starts, we can add a dynamic_batching block
-# and compare Triton scheduling against the manual FastAPI batch path.
+
+# First-pass dynamic batching:
+# - preferred_batch_size tries to form GPU-friendly batches opportunistically
+# - max_queue_delay_microseconds keeps queueing conservative for latency
+dynamic_batching {
+  preferred_batch_size: [ 4, 8, 16 ]
+  max_queue_delay_microseconds: 2000
+}
