@@ -3,6 +3,7 @@ aienv/
 __pycache__/
 *.pyc
 .DS_Store
+.cache/
 
 results/raw/
 results/plots/
@@ -11,3 +12,24 @@ results/tables/*.csv
 workloads/bert_classifier/artifacts/model/model.safetensors
 workloads/bert_classifier/onnx_export/bert_classifier.onnx
 workloads/bert_classifier/triton/model_repository/bert_classifier/1/model.onnx
+
+workloads/rag/reranker/artifacts/
+workloads/rag/**/__pycache__/
+workloads/rag/benchmarks/results/
+workloads/small_llm/results/
+
+
+# Accidental local model downloads / helper files at repo root
+/config.json
+/generation_config.json
+/merges.txt
+/tokenizer.json
+/tokenizer_config.json
+/vocab.json
+/udo systemctl cat docker
+/model.cache
+/model.safetensors
+/rank*.engine
+/rank*.safetensors
+
+workloads/rag/direct/assets/

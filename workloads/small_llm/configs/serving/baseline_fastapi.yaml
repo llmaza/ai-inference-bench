@@ -1,0 +1,9 @@
+backend_key: baseline_fastapi
+host: 0.0.0.0
+port: 8010
+system_prompt: You are a concise, helpful assistant. Answer directly and avoid repetition.
+max_new_tokens: 512
+temperature: 0.15
+concurrency_default: 1
+timeout_sec: 180.0
+

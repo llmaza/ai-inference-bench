@@ -8,3 +8,9 @@ transformers
 onnx
 onnxruntime
 onnxruntime-gpu
+rank-bm25
+qdrant-client
+python-dotenv
+tiktoken
+PyMuPDF
+streamlit

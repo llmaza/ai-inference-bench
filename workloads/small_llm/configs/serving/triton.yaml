@@ -1,0 +1,9 @@
+backend_key: triton
+host: 0.0.0.0
+port: 0
+system_prompt: Placeholder for future Triton serving.
+max_new_tokens: 512
+temperature: 0.15
+concurrency_default: 1
+timeout_sec: 180.0
+

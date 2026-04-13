@@ -1,0 +1,374 @@
+/* ZanRAG — inDrive-inspired Streamlit skin (presentation only) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --zan-bg: #070707;
+  --zan-surface: #101010;
+  --zan-surface-2: #161616;
+  --zan-border: rgba(198, 255, 0, 0.14);
+  --zan-lime: #c6ff00;
+  --zan-lime-dim: rgba(198, 255, 0, 0.12);
+  --zan-text: #f4f4f5;
+  --zan-muted: #8a8a90;
+  --zan-radius-lg: 20px;
+  --zan-radius-pill: 999px;
+  --zan-font: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html, body, [data-testid="stAppViewContainer"], .stApp {
+  font-family: var(--zan-font) !important;
+  background-color: var(--zan-bg) !important;
+  color: var(--zan-text) !important;
+}
+
+/* Main canvas */
+.main .block-container {
+  padding-top: 1.25rem;
+  padding-bottom: 3rem;
+  max-width: 1200px;
+}
+
+/* Header bar */
+header[data-testid="stHeader"] {
+  background-color: rgba(7, 7, 7, 0.92) !important;
+  border-bottom: 1px solid var(--zan-border) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #0c0c0c 0%, #080808 100%) !important;
+  border-right: 1px solid var(--zan-border) !important;
+}
+
+section[data-testid="stSidebar"] .block-container {
+  padding-top: 1.5rem;
+}
+
+/* Sidebar typography */
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] span {
+  color: var(--zan-muted) !important;
+}
+
+section[data-testid="stSidebar"] .stRadio label,
+section[data-testid="stSidebar"] .stSlider label {
+  color: var(--zan-text) !important;
+}
+
+/* Inputs */
+.stTextInput input,
+.stTextArea textarea,
+[data-baseweb="textarea"] textarea,
+[data-baseweb="input"] input {
+  background-color: var(--zan-surface-2) !important;
+  color: var(--zan-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+  caret-color: var(--zan-lime) !important;
+}
+
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {
+  color: var(--zan-muted) !important;
+  opacity: 0.85 !important;
+}
+
+/* Sliders */
+section[data-testid="stSidebar"] .stSlider [data-baseweb="slider"] [role="slider"] {
+  background-color: var(--zan-lime) !important;
+  border: 2px solid #0a0a0a !important;
+}
+
+section[data-testid="stSidebar"] .stSlider [data-testid="stThumbValue"] {
+  color: var(--zan-lime) !important;
+}
+
+/* Primary buttons (lime CTA) */
+.stButton > button[kind="primary"],
+button[kind="primary"] {
+  background: var(--zan-lime) !important;
+  color: #0a0a0a !important;
+  border: none !important;
+  border-radius: var(--zan-radius-pill) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  padding: 0.55rem 1.35rem !important;
+  box-shadow: 0 0 24px rgba(198, 255, 0, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stButton > button[kind="primary"]:hover,
+button[kind="primary"]:hover {
+  box-shadow: 0 0 32px rgba(198, 255, 0, 0.28);
+  transform: translateY(-1px);
+}
+
+/* Secondary buttons */
+.stButton > button[kind="secondary"],
+button[kind="secondary"] {
+  background: var(--zan-surface-2) !important;
+  color: var(--zan-text) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: var(--zan-radius-pill) !important;
+  font-weight: 600 !important;
+}
+
+/* Radio */
+.stRadio [role="radiogroup"] {
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: var(--zan-surface);
+  border-radius: var(--zan-radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+  font-weight: 600 !important;
+  color: var(--zan-text) !important;
+  background: var(--zan-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 14px !important;
+}
+
+.streamlit-expanderContent {
+  background: var(--zan-surface-2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-top: none !important;
+  border-radius: 0 0 14px 14px !important;
+  color: var(--zan-muted) !important;
+}
+
+/* Chat */
+[data-testid="stChatMessage"] {
+  background: var(--zan-surface) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: var(--zan-radius-lg) !important;
+}
+
+[data-testid="stChatInput"] {
+  border-radius: var(--zan-radius-lg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--zan-surface-2) !important;
+}
+
+[data-testid="stChatInput"] textarea {
+  color: var(--zan-text) !important;
+}
+
+/* Alerts / errors */
+div[data-testid="stAlert"] {
+  border-radius: 14px !important;
+  border: 1px solid rgba(198, 255, 0, 0.25) !important;
+  background: rgba(198, 255, 0, 0.06) !important;
+}
+
+/* Spinner */
+.stSpinner > div {
+  border-top-color: var(--zan-lime) !important;
+}
+
+/* Bordered containers (st.container(border=True)) */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  border: 1px solid var(--zan-border) !important;
+  border-radius: var(--zan-radius-lg) !important;
+  background: linear-gradient(145deg, rgba(22, 22, 22, 0.95), rgba(12, 12, 12, 0.98)) !important;
+  padding: 0.25rem 0.5rem 0.75rem 0.5rem !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4) inset;
+}
+
+/* Divider */
+hr {
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  margin: 1.5rem 0 !important;
+}
+
+/* Markdown in main */
+.main h1, .main h2, .main h3 {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+  color: var(--zan-text) !important;
+}
+
+/* ---------- ZanRAG hero (injected HTML) ---------- */
+.zan-hero-wrap {
+  margin-bottom: 1.75rem;
+}
+
+.zan-rail {
+  overflow: hidden;
+  height: 30px;
+  border: 2px solid var(--zan-lime);
+  background: #000;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.zan-rail--b {
+  margin-bottom: 1.25rem;
+}
+
+.zan-rail__track {
+  display: flex;
+  white-space: nowrap;
+  flex-shrink: 0;
+  will-change: transform;
+}
+
+.zan-rail__item {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 1.75rem;
+  user-select: none;
+}
+
+.zan-rail--a .zan-rail__track {
+  animation: zan-marq-left 55s linear infinite;
+}
+
+.zan-rail--b .zan-rail__track {
+  animation: zan-marq-right 62s linear infinite;
+}
+
+@keyframes zan-marq-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes zan-marq-right {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.zan-hero-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1.25rem 2rem;
+  padding: 0.5rem 0 0.25rem 0;
+}
+
+.zan-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--zan-lime);
+  color: #0a0a0a;
+  font-weight: 800;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: -0.03em;
+  box-shadow: 0 0 40px rgba(198, 255, 0, 0.22);
+}
+
+.zan-hero-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.zan-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--zan-muted);
+  margin-bottom: 0.35rem;
+  line-height: 1.35;
+}
+
+.zan-title {
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.03em;
+  color: var(--zan-text);
+}
+
+.zan-sub {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--zan-muted);
+  max-width: 52ch;
+  font-weight: 450;
+}
+
+/* Sidebar mini brand */
+.zan-sidebar-head {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--zan-border);
+}
+
+.zan-sidebar-head .zan-eyebrow {
+  margin-bottom: 0.5rem;
+}
+
+.zan-sidebar-h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--zan-text);
+  letter-spacing: -0.02em;
+}
+
+/* Panel section label inside main */
+.zan-panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--zan-muted);
+  margin: 0 0 0.65rem 0;
+}
+
+/* Corpus chip row */
+.zan-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1.25rem 0;
+}
+
+.zan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--zan-radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--zan-lime-dim);
+  border: 1px solid rgba(198, 255, 0, 0.28);
+  color: var(--zan-text);
+}
+
+.zan-chip b {
+  color: var(--zan-lime);
+  font-weight: 800;
+}
+
+@media (max-width: 768px) {
+  .zan-hero-inner {
+    flex-direction: column;
+  }
+  .zan-rail {
+    height: 26px;
+  }
+  .zan-rail__item {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+  }
+}

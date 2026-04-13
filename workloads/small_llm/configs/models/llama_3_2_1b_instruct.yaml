@@ -1,0 +1,9 @@
+model_key: llama_3_2_1b_instruct
+display_name: Llama 3.2 1B Instruct
+hf_model_name: meta-llama/Llama-3.2-1B-Instruct
+loader_key: llama
+active_default: false
+default_max_input_tokens: 8192
+default_max_new_tokens: 512
+torch_dtype_cuda: bfloat16
+

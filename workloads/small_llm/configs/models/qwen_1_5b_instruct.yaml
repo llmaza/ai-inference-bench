@@ -1,0 +1,9 @@
+model_key: qwen_1_5b_instruct
+display_name: Qwen 2.5 1.5B Instruct
+hf_model_name: Qwen/Qwen2.5-1.5B-Instruct
+loader_key: qwen
+active_default: true
+default_max_input_tokens: 8192
+default_max_new_tokens: 512
+torch_dtype_cuda: bfloat16
+

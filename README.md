@@ -1,123 +1,106 @@
-# ai-inference-bench
+# AI Inference Bench
 
-`ai-inference-bench` is an AI inference benchmark suite for comparing serving and runtime approaches across multiple workload types.
+AI Inference Bench is a local benchmarking workspace for comparing inference stacks across multiple AI workloads on the same machine. The repo is organized around workload-specific implementations and shared serving components so we can measure latency, throughput, batching behavior, and system tradeoffs with repeatable prompts and controlled configurations.
 
-Only Phase A1 is currently implemented. The active scope is a BERT classifier baseline served with FastAPI, a standardized BERT benchmark harness, and an ONNX export plus runtime-comparison path. ONNX/Triton/hybrid/embeddings/LLM areas outside the current BERT work remain placeholders.
+## Current Scope
 
-## Current Status
+- BERT topic-classification serving benchmarks
+- Direct/classic RAG benchmarking
+- Shared small-LLM serving and benchmark baselines
+- Placeholder structure for OCR and future workloads
 
-Implemented now:
-- BERT baseline FastAPI service
-- BERT benchmark runner and standardized result outputs
-- BERT ONNX export and parity validation
-- Direct runtime comparison for PyTorch vs ONNX Runtime on CPU and CUDA
-- Local BERT model artifacts stored inside this repo
+## Workloads
 
-Present but still placeholders:
-- Triton serving path
-- Hybrid BERT + regex workload
-- Embeddings workload
-- Small LLM workload
+- [workloads/bert_classifier](/home/user/projects/ai-inference-bench/workloads/bert_classifier)
+  BERT classifier workload with baseline FastAPI, ONNX Runtime FastAPI, Triton direct, and FastAPI-to-Triton paths.
+- [workloads/hybrid_bert_regex](/home/user/projects/ai-inference-bench/workloads/hybrid_bert_regex)
+  Hybrid BERT plus rule-based workload area.
+- [workloads/rag](/home/user/projects/ai-inference-bench/workloads/rag)
+  Direct RAG pipeline, local embedder, local reranker, shared small-LLM integration, benchmarks, and docs.
+- [workloads/small_llm](/home/user/projects/ai-inference-bench/workloads/small_llm)
+  Shared small-LLM service and benchmark paths.
+- [workloads/ocr](/home/user/projects/ai-inference-bench/workloads/ocr)
+  Placeholder for future OCR integration.
 
-## Repository Overview
+## Benchmarking Areas
 
-```text
-ai-inference-bench/
-├── benchmark/                   # Active benchmark harness for Phase A1
-├── docs/                        # Methodology and case-study notes
-├── results/
-│   ├── raw/                     # Per-request outputs and runtime logs
-│   ├── summaries/               # Reserved for future summary artifacts
-│   ├── plots/                   # Reserved for future plots
-│   └── tables/                  # Aggregate benchmark tables
-├── tests/                       # Placeholder test modules
-└── workloads/
-    ├── bert_classifier/
-    │   ├── artifacts/model/     # Local BERT model bundle used in Phase A1
-    │   ├── baseline_fastapi/    # Implemented FastAPI baseline
-    │   ├── onnx_export/         # Implemented ONNX export and validation
-    │   ├── triton/              # Placeholder
-    │   └── configs/
-    ├── hybrid_bert_regex/       # Placeholder
-    ├── embeddings/              # Placeholder
-    └── small_llm/               # Placeholder
-```
+- [benchmark](/home/user/projects/ai-inference-bench/benchmark)
+  Shared benchmark harnesses and metrics helpers.
+- [docs/bert](/home/user/projects/ai-inference-bench/docs/bert)
+  BERT benchmark reports and case-study notes.
+- [workloads/rag/docs](/home/user/projects/ai-inference-bench/workloads/rag/docs)
+  RAG benchmark analysis and experiment summaries.
 
-## Quickstart: Local Environment
+## Current Findings
 
-Create a dedicated environment for this repo:
+- FastAPI + ONNX Runtime is currently the strongest BERT serving path in this repo.
+- Triton was benchmarked for BERT, including batching experiments, but did not beat the current ONNX in-process path on this machine.
+- The direct RAG workload is instrumented by stage:
+  - retrieval
+  - retrieval + rerank
+  - full direct RAG
+- Current RAG bottlenecks are:
+  - local LLM generation first
+  - reranker second
+  - dense retrieval variance is worth tracking, but it is not the first steady-state optimization target
+- Shared `small_llm` stages are currently framed as:
+  - Stage A: local FastAPI baseline
+  - Stage B: TensorRT-LLM direct
+  - Stage C: Triton + TensorRT-LLM
+
+## Quick Start
+
+Create and activate the project environment:
 
 ```bash
 cd /home/user/projects/ai-inference-bench
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+python3 -m venv aienv
+source aienv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-Notes:
-- `onnxruntime-gpu` is included for CUDA-enabled ONNX Runtime benchmarking.
-- If you only need CPU ONNX tests, `onnxruntime` is sufficient.
-- The repo now defaults to its local model bundle under `workloads/bert_classifier/artifacts/model`.
-
-## Quickstart: BERT Baseline
-
-Start the BERT baseline FastAPI service:
+Run the BERT ONNX FastAPI service:
 
 ```bash
-cd /home/user/projects/ai-inference-bench/workloads/bert_classifier/baseline_fastapi
-source /home/user/projects/ai-inference-bench/.venv/bin/activate
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8001
-```
-
-Notes:
-- The service uses CUDA if available.
-- Service request logs are written under `results/raw/bert_classifier/baseline_fastapi/`.
-
-## Run the FastAPI Benchmark
-
-In a second terminal, with the same environment activated:
-
-```bash
-source /home/user/projects/ai-inference-bench/.venv/bin/activate
 cd /home/user/projects/ai-inference-bench
-python -m benchmark.runner \
-  --base-url http://127.0.0.1:8001 \
-  --warmup-requests 100 \
-  --hardware "NVIDIA GeForce RTX 3080"
+source aienv/bin/activate
+python -m uvicorn workloads.bert_classifier.onnx_fastapi.app.main:app --host 0.0.0.0 --port 8004
 ```
 
-## Run the Runtime Comparison
-
-Backend-only comparison, without FastAPI:
+Run the shared small-LLM FastAPI baseline:
 
 ```bash
-source /home/user/projects/ai-inference-bench/.venv/bin/activate
 cd /home/user/projects/ai-inference-bench
-python -m benchmark.compare_backends \
-  --onnx-path /home/user/projects/ai-inference-bench/workloads/bert_classifier/onnx_export/bert_classifier.onnx \
-  --dataset-path /home/user/projects/ai-inference-bench/benchmark/scenarios/bert_inputs.jsonl \
-  --num-texts 100 \
-  --batch-sizes 1 4 8 16 \
-  --warmup-batches 4 \
-  --backends pytorch_cpu pytorch_cuda onnx_cpu onnx_cuda
+source aienv/bin/activate
+MODEL_KEY=qwen_1_5b_instruct SMALL_LLM_SERVING_KEY=baseline_fastapi \
+python -m uvicorn workloads.small_llm.app.main:app --host 0.0.0.0 --port 8010
 ```
 
-## Expected Outputs
+Benchmark the shared small-LLM baseline:
 
-After running benchmarks, you should see:
+```bash
+cd /home/user/projects/ai-inference-bench
+source aienv/bin/activate
+python workloads/small_llm/benchmarks/run_baseline.py \
+  --base-url http://127.0.0.1:8010 \
+  --prompts workloads/small_llm/benchmarks/prompts.labor_sample.jsonl \
+  --repeats 3 \
+  --concurrency 1 \
+  --timeout-sec 180
+```
 
-- Per-request FastAPI benchmark outputs in:
-  - `results/raw/<run_id>_requests.jsonl`
-- Aggregate FastAPI benchmark table in:
-  - `results/tables/benchmark_runs.csv`
-- Service-side request logs in:
-  - `results/raw/bert_classifier/baseline_fastapi/requests_bert.jsonl`
-- Backend comparison raw outputs in:
-  - `results/raw/backend_comparison_<run_id>.jsonl`
-- Backend comparison table in:
-  - `results/tables/backend_comparison.csv`
+## Important Notes
 
-## Scope Boundary
+- Local model downloads should not be committed to the repo. Root-level Hugging Face artifacts are ignored in `.gitignore`.
+- Some workloads depend on Docker, NVIDIA GPU support, Triton, Qdrant, or TensorRT-LLM environments that need separate setup.
+- TensorRT-LLM direct setup exists in the repo, but actual execution depends on the container/runtime environment being prepared correctly.
 
-This README describes the current Phase A1 state only. Future Triton, hybrid, embeddings, and LLM sections are intentionally not documented as working features yet because they are still placeholders.
+## Suggested Read Order
+
+- [workloads/small_llm/README.md](/home/user/projects/ai-inference-bench/workloads/small_llm/README.md)
+- [workloads/rag/docs/local_direct_rag_benchmark_analysis.md](/home/user/projects/ai-inference-bench/workloads/rag/docs/local_direct_rag_benchmark_analysis.md)
+- [docs/bert/bert_case_study.md](/home/user/projects/ai-inference-bench/docs/bert/bert_case_study.md)
+
+## License
+
+See [LICENSE](/home/user/projects/ai-inference-bench/LICENSE).
