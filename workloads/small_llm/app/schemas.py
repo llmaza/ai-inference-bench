@@ -1,12 +1,26 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
 class GenerateRequest(BaseModel):
     message: str = Field(..., min_length=1)
+    max_new_tokens: Optional[int] = None
+
+
+class GenerateBatchItem(BaseModel):
+    message: str = Field(..., min_length=1)
+    prompt_name: Optional[str] = None
+    prompt_file: Optional[str] = None
+    request_index: Optional[int] = None
+    repeat_index: Optional[int] = None
+    max_new_tokens: Optional[int] = None
+
+
+class GenerateBatchRequest(BaseModel):
+    items: List[GenerateBatchItem] = Field(..., min_length=1)
 
 
 class GenerateResponse(BaseModel):
@@ -22,4 +36,3 @@ class GenerateResponse(BaseModel):
     model_key: str
     model_name: str
     device: str
-

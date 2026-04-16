@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bert-onnx
+  labels:
+    app: bert-onnx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bert-onnx
+  template:
+    metadata:
+      labels:
+        app: bert-onnx
+    spec:
+      containers:
+        - name: bert-onnx
+          image: bert-onnx:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: bert-onnx-config
+          volumeMounts:
+            - name: bert-model
+              mountPath: /models/bert_classifier
+              readOnly: true
+            - name: bert-onnx-model
+              mountPath: /models/bert_classifier_onnx
+              readOnly: true
+            - name: bert-outputs
+              mountPath: /outputs/onnx_fastapi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: bert-model
+          hostPath:
+            path: /home/user/projects/ai-inference-bench/workloads/bert_classifier/artifacts/model
+            type: Directory
+        - name: bert-onnx-model
+          hostPath:
+            path: /home/user/projects/ai-inference-bench/workloads/bert_classifier/onnx_export
+            type: Directory
+        - name: bert-outputs
+          emptyDir: {}

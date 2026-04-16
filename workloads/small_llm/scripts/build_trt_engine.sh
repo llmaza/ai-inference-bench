@@ -14,6 +14,7 @@ if ! command -v trtllm-build >/dev/null 2>&1; then
   fi
 fi
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
+BUILD_STARTED_EPOCH="$(date +%s)"
 
 if [[ -z "$PYTHON_BIN" ]]; then
   if command -v python >/dev/null 2>&1; then
@@ -104,5 +105,67 @@ trtllm-build \
   --max_input_len "$MAX_INPUT_LEN" \
   --max_seq_len "$MAX_SEQ_LEN" \
   --gemm_plugin "$GEMM_PLUGIN"
+
+BUILD_FINISHED_EPOCH="$(date +%s)"
+BUILD_TIME_SEC="$((BUILD_FINISHED_EPOCH - BUILD_STARTED_EPOCH))"
+
+export MODEL_SOURCE_DIR CONVERTED_DIR ENGINE_DIR MAX_INPUT_LEN MAX_SEQ_LEN MAX_BATCH_SIZE GEMM_PLUGIN BUILD_TIME_SEC MODEL_KEY TRTLLM_CONVERT_SCRIPT
+"$PYTHON_BIN" - <<'PY'
+import json
+import os
+from pathlib import Path
+
+from workloads.small_llm.app.logging_utils import artifact_metadata_record, write_summary_json, utc_now_iso
+from workloads.small_llm.app.registry import get_serving_config
+
+repo_root = Path(os.environ["REPO_ROOT"])
+engine_dir = Path(os.environ["ENGINE_DIR"])
+model_key = os.environ["MODEL_KEY"]
+serving_cfg = get_serving_config("trtllm_direct")
+
+engine_path = None
+engine_candidates = sorted(engine_dir.glob("*.engine"))
+if engine_candidates:
+    engine_path = engine_candidates[0]
+
+engine_size_bytes = engine_path.stat().st_size if engine_path and engine_path.exists() else None
+
+timing_cache_path = None
+for candidate in [engine_dir / "model.cache", repo_root / "model.cache"]:
+    if candidate.exists():
+        timing_cache_path = candidate
+        break
+
+metadata_dir = repo_root / "workloads" / "small_llm" / "results" / "stage_b_trtllm_direct" / "artifacts"
+metadata_path = metadata_dir / f"{model_key}_metadata.json"
+
+record = artifact_metadata_record(
+    timestamp=utc_now_iso(),
+    stage="trtllm_direct",
+    backend="trtllm_direct",
+    model_key=model_key,
+    engine_path=str(engine_path) if engine_path is not None else None,
+    engine_size_bytes=engine_size_bytes,
+    build_time_sec=int(os.environ["BUILD_TIME_SEC"]),
+    build_config={
+        "convert_script": os.environ["TRTLLM_CONVERT_SCRIPT"],
+        "model_source_dir": os.environ["MODEL_SOURCE_DIR"],
+        "converted_checkpoint_dir": os.environ["CONVERTED_DIR"],
+        "engine_dir": os.environ["ENGINE_DIR"],
+        "max_batch_size": int(os.environ["MAX_BATCH_SIZE"]),
+        "max_input_len": int(os.environ["MAX_INPUT_LEN"]),
+        "max_seq_len": int(os.environ["MAX_SEQ_LEN"]),
+        "max_output_len": int(getattr(serving_cfg, "max_new_tokens", 0) or 0),
+        "gemm_plugin": os.environ["GEMM_PLUGIN"],
+        "dtype": "bfloat16",
+    },
+    timing_cache_path=str(timing_cache_path) if timing_cache_path is not None else None,
+    runtime_precision="bfloat16",
+    max_input_len=int(os.environ["MAX_INPUT_LEN"]),
+    max_output_len=int(getattr(serving_cfg, "max_new_tokens", 0) or 0),
+)
+write_summary_json(metadata_path, record)
+print(json.dumps({"artifact_metadata": str(metadata_path)}, ensure_ascii=False))
+PY
 
 echo "TensorRT-LLM engine built at: $ENGINE_DIR"

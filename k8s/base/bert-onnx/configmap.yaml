@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bert-onnx-config
+  labels:
+    app: bert-onnx
+data:
+  APP_ENV: k3s
+  SERVICE_NAME: bert_onnx_api
+  SERVICE_TYPE: bert_onnx
+  SERVICE_VERSION: 0.1.0
+  GIT_COMMIT: unknown
+  BERT_MODEL_DIR: /models/bert_classifier
+  BERT_ONNX_PATH: /models/bert_classifier_onnx/bert_classifier.onnx
+  BERT_ONNX_PROVIDER: CPUExecutionProvider
+  BERT_LOG_DIR: /outputs/onnx_fastapi
+  BERT_REQUEST_LOG_PATH: /outputs/onnx_fastapi/requests_bert_onnx.jsonl
+  BERT_MAX_LENGTH: "256"

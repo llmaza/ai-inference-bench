@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bert-baseline
+  labels:
+    app: bert-baseline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bert-baseline
+  template:
+    metadata:
+      labels:
+        app: bert-baseline
+    spec:
+      containers:
+        - name: bert-baseline
+          image: bert-baseline:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: bert-baseline-config
+          volumeMounts:
+            - name: bert-model
+              mountPath: /models/bert_classifier
+              readOnly: true
+            - name: bert-outputs
+              mountPath: /outputs/baseline_fastapi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: bert-model
+          hostPath:
+            path: /home/user/projects/ai-inference-bench/workloads/bert_classifier/artifacts/model
+            type: Directory
+        - name: bert-outputs
+          emptyDir: {}

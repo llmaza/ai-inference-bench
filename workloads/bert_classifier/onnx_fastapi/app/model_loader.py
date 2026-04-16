@@ -8,7 +8,7 @@ import onnxruntime as ort
 from transformers import AutoTokenizer
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(os.getenv("AI_BENCH_REPO_ROOT", "/app"))
 DEFAULT_MODEL_DIR = REPO_ROOT / "workloads" / "bert_classifier" / "artifacts" / "model"
 DEFAULT_ONNX_PATH = (
     REPO_ROOT / "workloads" / "bert_classifier" / "onnx_export" / "bert_classifier.onnx"

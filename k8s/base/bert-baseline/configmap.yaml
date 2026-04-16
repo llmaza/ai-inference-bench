@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bert-baseline-config
+  labels:
+    app: bert-baseline
+data:
+  APP_ENV: k3s
+  SERVICE_NAME: bert_baseline_api
+  SERVICE_TYPE: bert_baseline
+  SERVICE_VERSION: 0.1.0
+  GIT_COMMIT: unknown
+  BERT_MODEL_DIR: /models/bert_classifier
+  BERT_LOG_DIR: /outputs/baseline_fastapi
+  BERT_REQUEST_LOG_PATH: /outputs/baseline_fastapi/requests_bert.jsonl
+  BERT_MAX_LENGTH: "256"

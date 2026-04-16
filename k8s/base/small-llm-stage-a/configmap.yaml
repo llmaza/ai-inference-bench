@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: small-llm-stage-a-config
+  labels:
+    app: small-llm-stage-a
+data:
+  APP_ENV: k3s
+  SERVICE_NAME: small_llm_api
+  SERVICE_TYPE: small_llm
+  SERVICE_VERSION: 0.1.0
+  GIT_COMMIT: unknown
+  AI_BENCH_REPO_ROOT: /app
+  PYTHONPATH: /app
+  MODEL_KEY: qwen_1_5b_instruct
+  SMALL_LLM_SERVING_KEY: baseline_fastapi
+  SMALL_LLM_SYSTEM_PROMPT: You are a concise, helpful assistant. Answer directly and avoid repetition.
+  SMALL_LLM_MAX_INPUT_TOKENS: "8192"
+  SMALL_LLM_MAX_NEW_TOKENS: "512"
+  SMALL_LLM_TEMPERATURE: "0.15"
+  LOCAL_LLM_DEVICE: cpu
+  SMALL_LLM_LOG_DIR: /outputs/stage_a_baseline/requests
+  SMALL_LLM_REQUEST_LOG_PATH: /outputs/stage_a_baseline/requests/requests_small_llm.jsonl
+  HF_HOME: /hf-cache
+  HUGGINGFACE_HUB_CACHE: /hf-cache/hub
+  TRANSFORMERS_CACHE: /hf-cache/transformers
+  HF_HUB_DISABLE_XET: "1"
+  HTTP_PROXY: http://10.2.68.81:3389/
+  HTTPS_PROXY: http://10.2.68.81:3389/
+  NO_PROXY: localhost,127.0.0.0/8,::1,10.0.0.0/8,qdrant,small-llm-stage-a,bert-baseline,bert-onnx
+  http_proxy: http://10.2.68.81:3389/
+  https_proxy: http://10.2.68.81:3389/
+  no_proxy: localhost,127.0.0.0/8,::1,10.0.0.0/8,qdrant,small-llm-stage-a,bert-baseline,bert-onnx

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: small-llm-stage-a
+  labels:
+    app: small-llm-stage-a
+spec:
+  type: ClusterIP
+  selector:
+    app: small-llm-stage-a
+  ports:
+    - name: http
+      port: 8010
+      targetPort: http

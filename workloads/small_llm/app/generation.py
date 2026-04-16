@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from dataclasses import dataclass
 from functools import lru_cache
@@ -78,6 +79,11 @@ class LocalChatBackend:
         gen_cfg.top_k = None
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.tokenizer.padding_side = "left"
+        # Serialize inference on the shared CUDA model to avoid concurrent kernel
+        # launches from the FastAPI threadpool. This keeps the baseline stable under
+        # sweep concurrency while we validate the service behavior.
+        self._inference_lock = threading.Lock()
 
     def _prepare_inputs(self, messages: list[dict]) -> dict[str, torch.Tensor]:
         prompt = self.tokenizer.apply_chat_template(
@@ -105,6 +111,71 @@ class LocalChatBackend:
             temperature=temperature,
         ).text
 
+    def generate_batch_with_stats(
+        self,
+        messages_batch: list[list[dict]],
+        max_new_tokens: int,
+        temperature: float = 0.15,
+    ) -> list[GenerationStats]:
+        with self._inference_lock:
+            encoded_prompts = []
+            for messages in messages_batch:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                encoded_prompts.append(prompt)
+            encoded = self.tokenizer(
+                encoded_prompts,
+                return_tensors="pt",
+                truncation=True,
+                max_length=self.max_input_tokens,
+                padding=True,
+            )
+            encoded = {k: v.to(self.device) for k, v in encoded.items()}
+            attention_mask = encoded.get("attention_mask")
+            input_lengths = attention_mask.sum(dim=1).tolist() if attention_mask is not None else [encoded["input_ids"].shape[1]] * len(messages_batch)
+            if self.device == "cuda":
+                torch.cuda.reset_peak_memory_stats()
+                torch.cuda.synchronize()
+            started = time.perf_counter()
+            with torch.no_grad():
+                generated = self.model.generate(
+                    **encoded,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                )
+            if self.device == "cuda":
+                torch.cuda.synchronize()
+            generation_ms = (time.perf_counter() - started) * 1000
+            peak_gpu_memory_mb = None
+            if self.device == "cuda":
+                peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+            results: list[GenerationStats] = []
+            for row_index, input_len in enumerate(input_lengths):
+                output_ids = generated[row_index][int(input_len):]
+                text = self.tokenizer.decode(output_ids, skip_special_tokens=True).strip()
+                output_tokens = int(output_ids.shape[0])
+                tokens_per_sec = None
+                if generation_ms > 0 and output_tokens > 0:
+                    tokens_per_sec = output_tokens / (generation_ms / 1000.0)
+                results.append(
+                    GenerationStats(
+                        text=text,
+                        input_tokens=int(input_len),
+                        output_tokens=output_tokens,
+                        total_tokens=int(input_len + output_tokens),
+                        generation_ms=generation_ms,
+                        tokens_per_sec=tokens_per_sec,
+                        ttft_ms=None,
+                        peak_gpu_memory_mb=peak_gpu_memory_mb,
+                    )
+                )
+            return results
+
     def generate_with_stats(
         self,
         messages: list[dict],
@@ -112,42 +183,43 @@ class LocalChatBackend:
         temperature: float = 0.15,
     ) -> GenerationStats:
         del temperature
-        encoded = self._prepare_inputs(messages)
-        input_len = encoded["input_ids"].shape[1]
-        if self.device == "cuda":
-            torch.cuda.reset_peak_memory_stats()
-            torch.cuda.synchronize()
-        started = time.perf_counter()
-        with torch.no_grad():
-            generated = self.model.generate(
-                **encoded,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
+        with self._inference_lock:
+            encoded = self._prepare_inputs(messages)
+            input_len = encoded["input_ids"].shape[1]
+            if self.device == "cuda":
+                torch.cuda.reset_peak_memory_stats()
+                torch.cuda.synchronize()
+            started = time.perf_counter()
+            with torch.no_grad():
+                generated = self.model.generate(
+                    **encoded,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                )
+            if self.device == "cuda":
+                torch.cuda.synchronize()
+            generation_ms = (time.perf_counter() - started) * 1000
+            output_ids = generated[0][input_len:]
+            text = self.tokenizer.decode(output_ids, skip_special_tokens=True).strip()
+            output_tokens = int(output_ids.shape[0])
+            peak_gpu_memory_mb = None
+            if self.device == "cuda":
+                peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
+            tokens_per_sec = None
+            if generation_ms > 0 and output_tokens > 0:
+                tokens_per_sec = output_tokens / (generation_ms / 1000.0)
+            return GenerationStats(
+                text=text,
+                input_tokens=int(input_len),
+                output_tokens=output_tokens,
+                total_tokens=int(input_len + output_tokens),
+                generation_ms=generation_ms,
+                tokens_per_sec=tokens_per_sec,
+                ttft_ms=None,
+                peak_gpu_memory_mb=peak_gpu_memory_mb,
             )
-        if self.device == "cuda":
-            torch.cuda.synchronize()
-        generation_ms = (time.perf_counter() - started) * 1000
-        output_ids = generated[0][input_len:]
-        text = self.tokenizer.decode(output_ids, skip_special_tokens=True).strip()
-        output_tokens = int(output_ids.shape[0])
-        peak_gpu_memory_mb = None
-        if self.device == "cuda":
-            peak_gpu_memory_mb = torch.cuda.max_memory_allocated() / (1024 * 1024)
-        tokens_per_sec = None
-        if generation_ms > 0 and output_tokens > 0:
-            tokens_per_sec = output_tokens / (generation_ms / 1000.0)
-        return GenerationStats(
-            text=text,
-            input_tokens=int(input_len),
-            output_tokens=output_tokens,
-            total_tokens=int(input_len + output_tokens),
-            generation_ms=generation_ms,
-            tokens_per_sec=tokens_per_sec,
-            ttft_ms=None,
-            peak_gpu_memory_mb=peak_gpu_memory_mb,
-        )
 
 
 @lru_cache(maxsize=8)

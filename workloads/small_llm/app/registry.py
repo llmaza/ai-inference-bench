@@ -22,6 +22,7 @@ SERVING_REGISTRY: dict[str, Path] = {
     "baseline_fastapi": SERVING_CONFIG_DIR / "baseline_fastapi.yaml",
     "trtllm_direct": SERVING_CONFIG_DIR / "trtllm.yaml",
     "triton": SERVING_CONFIG_DIR / "triton.yaml",
+    "vllm": SERVING_CONFIG_DIR / "vllm.yaml",
 }
 
 DEFAULT_MODEL_KEY = "qwen_1_5b_instruct"

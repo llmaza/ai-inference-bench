@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+requests
+numpy
+transformers
+onnxruntime
+rank-bm25
+qdrant-client
+python-dotenv
+tiktoken
+PyMuPDF
+streamlit

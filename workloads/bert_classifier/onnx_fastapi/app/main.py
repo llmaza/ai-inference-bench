@@ -55,7 +55,7 @@ SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0")
 ENVIRONMENT = os.getenv("APP_ENV", "local")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(os.getenv("AI_BENCH_REPO_ROOT", "/app"))
 DEFAULT_LOG_DIR = REPO_ROOT / "results" / "raw" / "bert_classifier" / "onnx_fastapi"
 LOG_DIR = Path(os.getenv("BERT_LOG_DIR", str(DEFAULT_LOG_DIR)))
 REQUEST_LOG_PATH = Path(

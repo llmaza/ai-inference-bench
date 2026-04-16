@@ -19,6 +19,7 @@ class Runtime:
     model_name: str
     display_name: str
     device: str
+    dtype: str
     backend_key: str
     loader_key: str
     max_input_tokens: int
@@ -56,6 +57,7 @@ def get_runtime(model_key: str | None = None, serving_key: str | None = None) ->
         os.getenv("SMALL_LLM_MAX_NEW_TOKENS", str(serving_cfg.max_new_tokens or model_cfg.default_max_new_tokens))
     )
     system_prompt = os.getenv("SMALL_LLM_SYSTEM_PROMPT", serving_cfg.system_prompt)
+    dtype = model_cfg.torch_dtype_cuda if device == "cuda" else "float32"
     backend = get_local_chat_backend(
         model_name=model_cfg.hf_model_name,
         device=device,
@@ -68,6 +70,7 @@ def get_runtime(model_key: str | None = None, serving_key: str | None = None) ->
         model_name=model_cfg.hf_model_name,
         display_name=model_cfg.display_name,
         device=device,
+        dtype=dtype,
         backend_key=serving_cfg.backend_key,
         loader_key=loader_cfg["loader_key"],
         max_input_tokens=max_input_tokens,
@@ -79,4 +82,3 @@ def get_runtime(model_key: str | None = None, serving_key: str | None = None) ->
         gpu_name=_gpu_name(),
         gpu_total_memory_mb=_gpu_total_memory_mb(),
     )
-

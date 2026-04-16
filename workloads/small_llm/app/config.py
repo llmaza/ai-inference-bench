@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(os.getenv("AI_BENCH_REPO_ROOT", str(Path(__file__).resolve().parents[3])))
 SMALL_LLM_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_ROOT = SMALL_LLM_ROOT / "configs"
 MODEL_CONFIG_DIR = CONFIG_ROOT / "models"

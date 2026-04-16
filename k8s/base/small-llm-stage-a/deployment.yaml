@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: small-llm-stage-a
+  labels:
+    app: small-llm-stage-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: small-llm-stage-a
+  template:
+    metadata:
+      labels:
+        app: small-llm-stage-a
+    spec:
+      containers:
+        - name: small-llm-stage-a
+          image: small-llm-stage-a:0.1.0
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8010
+          envFrom:
+            - configMapRef:
+                name: small-llm-stage-a-config
+          volumeMounts:
+            - name: stage-a-logs
+              mountPath: /outputs/stage_a_baseline
+            - name: hf-cache
+              mountPath: /hf-cache
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: stage-a-logs
+          emptyDir: {}
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: small-llm-stage-a-hf-cache
