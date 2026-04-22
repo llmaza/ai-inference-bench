@@ -32,9 +32,10 @@ Inactive placeholder for later switch:
 
 - Stage A: local FastAPI baseline
 - Stage B: TensorRT-LLM direct
-- Stage C: Triton + TensorRT-LLM
+- Stage C: Triton OpenAI-compatible TRT-LLM serving
 
-Stage B now has setup/build/benchmark files in place, but it still depends on the official TensorRT-LLM environment being present. Stage C remains a placeholder.
+Stage B uses the local TensorRT-LLM runtime directly.
+Stage C uses the `trtllm-serve` OpenAI-compatible endpoint from the official TRT-LLM container/tooling.
 
 ## Running Stage A
 
@@ -63,11 +64,20 @@ cd /home/user/projects/ai-inference-bench
 source aienv/bin/activate
 python workloads/small_llm/benchmarks/run_baseline.py \
   --base-url http://127.0.0.1:8010 \
-  --prompts workloads/small_llm/benchmarks/prompts.labor_sample.jsonl \
+  --prompts workloads/small_llm/benchmarks/prompts/prompts_rag_medium_tk_rk_baseline.jsonl \
   --repeats 3 \
   --concurrency 1 \
   --timeout-sec 180
 ```
+
+Canonical Stage A outputs:
+
+- request logs:
+  - `workloads/small_llm/results/stage_a_baseline/requests/requests_small_llm.jsonl`
+- benchmark per-request runs:
+  - `workloads/small_llm/results/stage_a_baseline/runs/*.jsonl`
+- benchmark run summaries:
+  - `workloads/small_llm/results/stage_a_baseline/runs/*_summary.json`
 
 ## Stage B: TensorRT-LLM Direct
 
@@ -114,9 +124,107 @@ cd /home/user/projects/ai-inference-bench
 source aienv/bin/activate
 python workloads/small_llm/benchmarks/run_trtllm.py \
   --model-key qwen_1_5b_instruct \
-  --prompts workloads/small_llm/benchmarks/prompts.labor_sample.jsonl \
+  --prompts workloads/small_llm/benchmarks/prompts/prompts_rag_medium_tk_rk_baseline.jsonl \
   --repeats 3
 ```
+
+Canonical Stage B outputs:
+
+- request logs:
+  - `workloads/small_llm/results/stage_b_trtllm_direct/requests/requests_trtllm.jsonl`
+- benchmark per-request runs:
+  - `workloads/small_llm/results/stage_b_trtllm_direct/runs/*.jsonl`
+- benchmark run summaries:
+  - `workloads/small_llm/results/stage_b_trtllm_direct/runs/*_summary.json`
+- artifact metadata:
+  - `workloads/small_llm/results/stage_b_trtllm_direct/artifacts/<model_key>_metadata.json`
+
+## Stage C: Triton OpenAI-Compatible TRT-LLM
+
+Stage C benchmarks the same prompt set against a Triton-compatible OpenAI API backed by TRT-LLM.
+
+Start the server inside the official TRT-LLM / Triton container:
+
+```bash
+cd /home/user/projects/ai-inference-bench
+export TRITON_MODEL_PATH=/home/user/projects/ai-inference-bench
+export TRITON_TOKENIZER_PATH=/home/user/projects/ai-inference-bench
+bash workloads/small_llm/scripts/start_triton.sh
+```
+
+Run one prompt:
+
+```bash
+cd /home/user/projects/ai-inference-bench
+python workloads/small_llm/benchmarks/run_triton.py \
+  --model-key qwen_1_5b_instruct \
+  --single-prompt "Summarize the main rules around probation periods in labor law in 3 short bullet points."
+```
+
+Run the Triton benchmark:
+
+```bash
+cd /home/user/projects/ai-inference-bench
+python workloads/small_llm/benchmarks/run_triton.py \
+  --model-key qwen_1_5b_instruct \
+  --prompts workloads/small_llm/benchmarks/prompts/prompts_rag_medium_tk_rk_baseline.jsonl \
+  --repeats 3
+```
+
+Canonical Stage C outputs:
+
+- request logs:
+  - `workloads/small_llm/results/stage_c_triton_trtllm/requests/requests_triton_trtllm.jsonl`
+- benchmark per-request runs:
+  - `workloads/small_llm/results/stage_c_triton_trtllm/runs/*.jsonl`
+- benchmark run summaries:
+  - `workloads/small_llm/results/stage_c_triton_trtllm/runs/*_summary.json`
+- Triton/server metadata:
+  - `workloads/small_llm/results/stage_c_triton_trtllm/artifacts/<model_key>_triton_server_metadata.json`
+
+Older benchmark files under `workloads/small_llm/results/benchmarks/` are still valid historical outputs, but the stage-specific paths above are now the canonical locations.
+
+## Sweep Runs
+
+Sweeps are an extra layer on top of the existing benchmark scripts. The current Stage A, Stage B, and Stage C CLIs stay unchanged.
+
+Sweep aliases:
+
+- `A` -> `prefill`
+- `B` -> `decode`
+- `C` -> `concurrency`
+- `D` -> `long_context_concurrency`
+- `E` -> `batching`
+- `F` -> `overload`
+
+Supported backends:
+
+- `baseline_fastapi`
+- `trtllm_direct`
+- `triton`
+- `vllm`
+
+Example commands:
+
+```bash
+cd /home/user/projects/ai-inference-bench
+source aienv/bin/activate
+python workloads/small_llm/benchmarks/run_sweeps.py A --backend baseline_fastapi
+python workloads/small_llm/benchmarks/run_sweeps.py B --backend trtllm_direct
+python workloads/small_llm/benchmarks/run_sweeps.py C --backend triton
+python workloads/small_llm/benchmarks/run_sweeps.py A --backend vllm
+```
+
+Sweep outputs:
+
+- global CSV ledger:
+  - `workloads/small_llm/results/tables/sweep_runs.csv`
+- per-sweep CSVs:
+  - `workloads/small_llm/results/sweeps/*.csv`
+
+The vLLM path expects a running OpenAI-compatible vLLM server.
+
+The sweep runner appends one row per sweep point to the global ledger and the matching per-sweep CSV.
 
 Compare against Stage A:
 

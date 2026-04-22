@@ -96,7 +96,7 @@ SWEEP_DEFINITIONS: dict[str, SweepDefinition] = {
         label="Prefill",
         csv_path=SWEEP_PREFILL_CSV,
         varied_param="prompt_len",
-        grid_values=(128, 512, 1024, 2048),
+        grid_values=(128, 256, 512, 1024, 2048),
         fixed_params={
             "gen_len": 128,
             "concurrency": 1,
@@ -122,7 +122,7 @@ SWEEP_DEFINITIONS: dict[str, SweepDefinition] = {
         label="Concurrency",
         csv_path=SWEEP_CONCURRENCY_CSV,
         varied_param="concurrency",
-        grid_values=(1, 2, 4, 8),
+        grid_values=(1, 2, 4, 8, 16),
         fixed_params={
             "prompt_len": 512,
             "gen_len": 128,

@@ -95,6 +95,21 @@ python workloads/small_llm/benchmarks/run_baseline.py \
 - Some workloads depend on Docker, NVIDIA GPU support, Triton, Qdrant, or TensorRT-LLM environments that need separate setup.
 - TensorRT-LLM direct setup exists in the repo, but actual execution depends on the container/runtime environment being prepared correctly.
 
+## k3s Phase 1
+
+For the temporary k3s phase-1 stack, only these services are included:
+
+- `qdrant`
+- `bert-baseline`
+- `bert-onnx`
+
+The LLM-serving pieces are intentionally deferred for now:
+
+- `small-llm-stage-a`
+- `trtllm_direct`
+- `triton`
+- `vllm`
+
 ## Suggested Read Order
 
 - [workloads/small_llm/README.md](/home/user/projects/ai-inference-bench/workloads/small_llm/README.md)
