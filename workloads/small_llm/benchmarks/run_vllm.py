@@ -261,6 +261,7 @@ def build_sweep_row(
 
 
 def benchmark(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    warmup_requests = max(0, int(getattr(args, "warmup_requests", 1) or 0))
     ensure_output_dirs()
     vllm_client = load_vllm_client()
     config = vllm_client.resolve_vllm_config(args.model_key)
@@ -279,6 +280,24 @@ def benchmark(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str,
                     "repeat_index": repeat_index,
                 }
             )
+
+    def run_warmup_once() -> None:
+        if not expanded:
+            return
+        warmup_prompt = expanded[0]
+        if batch_size > 1:
+            warmup_messages = [
+                [
+                    {"role": "system", "content": config.system_prompt},
+                    {"role": "user", "content": warmup_prompt["message"]},
+                ]
+            ]
+            backend.generate_batch_with_stats(warmup_messages, max_new_tokens=max_new_tokens)
+            return
+        run_once(backend, warmup_prompt["message"], max_new_tokens=max_new_tokens)
+
+    for _ in range(warmup_requests):
+        run_warmup_once()
 
     run_id = str(uuid.uuid4())
     timestamp = utc_now_iso()
@@ -473,6 +492,7 @@ def run_vllm_sweep_point(
     prompts: str | Path = DEFAULT_PROMPTS_PATH,
     notes: str = "",
     max_new_tokens: int | None = None,
+    warmup_requests: int = 1,
 ) -> dict[str, Any]:
     args = argparse.Namespace(
         prompts=str(prompts),
@@ -482,6 +502,7 @@ def run_vllm_sweep_point(
         max_new_tokens=max_new_tokens if max_new_tokens is not None else gen_len,
         offered_load_rps=offered_load_rps,
         batch_size=batch_size,
+        warmup_requests=warmup_requests,
     )
     rows, summary = benchmark(args)
     sweep_row = build_sweep_row(

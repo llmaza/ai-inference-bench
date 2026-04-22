@@ -170,6 +170,7 @@ def send_generate_batch(
 
 
 def benchmark(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    warmup_requests = max(0, int(getattr(args, "warmup_requests", 1) or 0))
     prompts = load_prompts(Path(args.prompts))
     expanded: list[dict[str, Any]] = []
     for repeat_index in range(args.repeats):
@@ -191,6 +192,30 @@ def benchmark(args: argparse.Namespace) -> tuple[list[dict[str, Any]], dict[str,
     max_new_tokens = getattr(args, "max_new_tokens", None)
     offered_load_rps = getattr(args, "offered_load_rps", None)
     batch_size = max(1, int(getattr(args, "batch_size", 1) or 1))
+
+    def run_warmup_once() -> None:
+        if not expanded:
+            return
+        warmup_prompt = expanded[0]
+        if batch_size > 1:
+            warmup_items = [
+                {
+                    "message": warmup_prompt["message"],
+                    "prompt_name": warmup_prompt.get("prompt_id"),
+                    "prompt_file": str(Path(args.prompts).resolve()),
+                    "request_index": -1,
+                    "repeat_index": warmup_prompt["repeat_index"],
+                    "max_new_tokens": max_new_tokens,
+                }
+            ]
+            with requests.Session() as session:
+                send_generate_batch(session, endpoint + "/generate_batch", warmup_items, args.timeout_sec)
+            return
+        with requests.Session() as session:
+            send_generate(session, endpoint + "/generate", warmup_prompt["message"], args.timeout_sec, max_new_tokens)
+
+    for _ in range(warmup_requests):
+        run_warmup_once()
 
     def append_row(prompt: dict[str, Any], request_index: int, result: dict[str, Any], batch_latency_ms: float | None = None) -> None:
         payload = result.get("response") or {}
@@ -411,6 +436,7 @@ def run_baseline_sweep_point(
     backend_variant: str = "cpu",
     precision: str | None = "float32",
     notes: str = "",
+    warmup_requests: int = 1,
 ) -> dict[str, Any]:
     """Run one sweep point with the existing baseline benchmark implementation.
 
@@ -428,6 +454,7 @@ def run_baseline_sweep_point(
         max_new_tokens=max_new_tokens,
         offered_load_rps=offered_load_rps,
         batch_size=batch_size,
+        warmup_requests=warmup_requests,
     )
     rows, summary = benchmark(args)
     sweep_row = build_baseline_sweep_row(

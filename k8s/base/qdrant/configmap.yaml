@@ -6,7 +6,4 @@ metadata:
     app: qdrant
 data:
   QDRANT__SERVICE__HTTP_PORT: "6333"
-  QDRANT__STORAGE__STORAGE_PATH: /qdrant/storage
-  QDRANT__TELEMETRY_DISABLED: "true"
-
-
+`

@@ -16,6 +16,7 @@ from ..registry import get_model_config, get_serving_config
 
 DEFAULT_TRITON_BASE_URL = "http://127.0.0.1:8000/v1"
 DEFAULT_TRITON_CHAT_PATH = "/chat/completions"
+DEFAULT_TRITON_COMPLETIONS_PATH = "/completions"
 
 
 def _resolve_repo_path(value: str) -> Path:
@@ -46,6 +47,7 @@ class TritonOpenAIConfig:
     served_model_name: str
     base_url: str
     chat_path: str
+    completions_path: str
     system_prompt: str
     max_input_len: int
     max_new_tokens: int
@@ -109,6 +111,7 @@ def resolve_triton_config(model_key: str | None = None) -> TritonOpenAIConfig:
         served_model_name=served_model_name,
         base_url=base_url,
         chat_path=os.getenv("SMALL_LLM_TRITON_CHAT_PATH", DEFAULT_TRITON_CHAT_PATH),
+        completions_path=os.getenv("SMALL_LLM_TRITON_COMPLETIONS_PATH", DEFAULT_TRITON_COMPLETIONS_PATH),
         system_prompt=os.getenv("SMALL_LLM_SYSTEM_PROMPT", serving_cfg.system_prompt),
         max_input_len=max_input_len,
         max_new_tokens=max_new_tokens,
@@ -180,6 +183,23 @@ class TritonOpenAIBackend:
             add_generation_prompt=True,
         )
 
+    def _build_prompt_from_messages(self, messages: list[dict[str, str]]) -> str:
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+    def _prompt_token_count_from_messages(self, messages: list[dict[str, str]]) -> int:
+        prompt = self._build_prompt_from_messages(messages)
+        encoded = self.tokenizer(
+            prompt,
+            return_tensors="pt",
+            truncation=True,
+            max_length=self.config.max_input_len,
+        )
+        return int(encoded["input_ids"].shape[1])
+
     def _prompt_token_count(self, message: str) -> int:
         prompt = self._build_prompt(message)
         encoded = self.tokenizer(
@@ -242,6 +262,55 @@ class TritonOpenAIBackend:
             peak_gpu_memory_mb=None,
             finish_reason=finish_reason,
         )
+
+
+    def generate_batch_with_stats(
+        self,
+        messages_batch: list[list[dict[str, str]]],
+        max_new_tokens: int | None = None,
+    ) -> list[TritonGenerationStats]:
+        prompts = [self._build_prompt_from_messages(messages) for messages in messages_batch]
+        prompt_tokens = [self._prompt_token_count_from_messages(messages) for messages in messages_batch]
+        payload = {
+            "model": self.config.served_model_name,
+            "prompt": prompts,
+            "max_tokens": max_new_tokens or self.config.max_new_tokens,
+            "temperature": self.config.temperature,
+            "stream": False,
+        }
+        started = time.perf_counter()
+        response = requests.post(
+            f"{self.config.base_url}{self.config.completions_path}",
+            json=payload,
+            timeout=self.config.timeout_sec,
+        )
+        generation_ms = (time.perf_counter() - started) * 1000
+        response.raise_for_status()
+        body = response.json()
+        choices = body.get("choices") or []
+        choices_by_index = {choice.get("index", idx): choice for idx, choice in enumerate(choices)}
+        stats: list[TritonGenerationStats] = []
+        for idx, _messages in enumerate(messages_batch):
+            choice = choices_by_index.get(idx) or {}
+            text = (choice.get("text") or choice.get("message", {}).get("content") or "").strip()
+            output_tokens = self._completion_token_count(text)
+            tokens_per_sec = None
+            if generation_ms > 0 and output_tokens > 0:
+                tokens_per_sec = output_tokens / (generation_ms / 1000.0)
+            stats.append(
+                TritonGenerationStats(
+                    text=text,
+                    input_tokens=int(prompt_tokens[idx]),
+                    output_tokens=int(output_tokens),
+                    total_tokens=int(prompt_tokens[idx] + output_tokens),
+                    generation_ms=generation_ms,
+                    tokens_per_sec=tokens_per_sec,
+                    ttft_ms=None,
+                    peak_gpu_memory_mb=None,
+                    finish_reason=choice.get("finish_reason"),
+                )
+            )
+        return stats
 
 
 @dataclass(frozen=True)

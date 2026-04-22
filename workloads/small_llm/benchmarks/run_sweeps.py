@@ -137,12 +137,12 @@ def run_triton_sweep_point(
     repeats: int = 3,
     prompts: str | Path = DEFAULT_PROMPTS_PATH,
     notes: str = "",
+    max_new_tokens: int | None = None,
 ) -> dict[str, Any]:
     """Run one sweep point against the existing Triton OpenAI-compatible backend.
 
-    The current Triton path does not synthesize prompts from prompt_len or force a
-    backend-side batch_size/offered_load knob, so those values are recorded as sweep
-    metadata while the runner reuses the existing prompt corpus and concurrency path.
+    The Triton path uses single chat requests for batch_size=1 and OpenAI
+    completions prompt-list requests for batch_size>1.
     """
 
     import workloads.small_llm.benchmarks.run_triton as triton_runner
@@ -151,9 +151,7 @@ def run_triton_sweep_point(
     config = triton_runner.resolve_triton_config(resolved_model_key)
     backend = triton_runner.TritonOpenAIBackend(config)
     prompt_rows = triton_runner.load_prompts(Path(prompts))
-    if batch_size > 1:
-        raise NotImplementedError("True batching is not supported for the Triton backend yet.")
-    max_new_tokens = gen_len
+    max_new_tokens = max_new_tokens if max_new_tokens is not None else gen_len
 
     expanded: list[dict[str, Any]] = []
     for repeat_index in range(repeats):
@@ -172,27 +170,63 @@ def run_triton_sweep_point(
     rows: list[dict[str, Any]] = []
     rows_lock = threading.Lock()
 
-    def task(request_index: int, prompt: dict[str, Any]) -> None:
-        sleep_for_offered_load(started, request_index, offered_load_rps)
-        result = triton_runner.run_once(backend, prompt["message"], max_new_tokens=max_new_tokens)
-        row = {
-            "request_index": request_index,
-            "success": True,
-            "wall_latency_ms": result["wall_latency_ms"],
-            "generation_ms": result["generation_ms"],
-            "ttft_ms": result["ttft_ms"],
-            "tokens_per_sec": result["tokens_per_sec"],
-            "input_tokens": result["input_tokens"],
-            "generated_tokens": result["generated_tokens"],
-            "peak_gpu_memory_mb": result["peak_gpu_memory_mb"],
-        }
-        with rows_lock:
-            rows.append(row)
+    if batch_size > 1:
+        batches = [expanded[i : i + batch_size] for i in range(0, len(expanded), batch_size)]
 
-    with ThreadPoolExecutor(max_workers=concurrency) as executor:
-        futures = [executor.submit(task, idx, prompt) for idx, prompt in enumerate(expanded)]
-        for future in as_completed(futures):
-            future.result()
+        def task(batch_index: int, batch_prompts: list[dict[str, Any]]) -> None:
+            sleep_for_offered_load(started, batch_index * batch_size, offered_load_rps)
+            messages_batch = [
+                [
+                    {"role": "system", "content": config.system_prompt},
+                    {"role": "user", "content": prompt["message"]},
+                ]
+                for prompt in batch_prompts
+            ]
+            batch_results = backend.generate_batch_with_stats(messages_batch, max_new_tokens=max_new_tokens)
+            with rows_lock:
+                for offset, result_obj in enumerate(batch_results):
+                    request_index = batch_index * batch_size + offset
+                    result = result_obj.to_dict()
+                    rows.append(
+                        {
+                            "request_index": request_index,
+                            "success": True,
+                            "wall_latency_ms": result["generation_ms"],
+                            "generation_ms": result["generation_ms"],
+                            "ttft_ms": result["ttft_ms"],
+                            "tokens_per_sec": result["tokens_per_sec"],
+                            "input_tokens": result["input_tokens"],
+                            "generated_tokens": result["output_tokens"],
+                            "peak_gpu_memory_mb": result["peak_gpu_memory_mb"],
+                        }
+                    )
+
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [executor.submit(task, idx, batch) for idx, batch in enumerate(batches)]
+            for future in as_completed(futures):
+                future.result()
+    else:
+        def task(request_index: int, prompt: dict[str, Any]) -> None:
+            sleep_for_offered_load(started, request_index, offered_load_rps)
+            result = triton_runner.run_once(backend, prompt["message"], max_new_tokens=max_new_tokens)
+            row = {
+                "request_index": request_index,
+                "success": True,
+                "wall_latency_ms": result["wall_latency_ms"],
+                "generation_ms": result["generation_ms"],
+                "ttft_ms": result["ttft_ms"],
+                "tokens_per_sec": result["tokens_per_sec"],
+                "input_tokens": result["input_tokens"],
+                "generated_tokens": result["generated_tokens"],
+                "peak_gpu_memory_mb": result["peak_gpu_memory_mb"],
+            }
+            with rows_lock:
+                rows.append(row)
+
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [executor.submit(task, idx, prompt) for idx, prompt in enumerate(expanded)]
+            for future in as_completed(futures):
+                future.result()
 
     total_wall_sec = time.perf_counter() - started
     rows = sorted(rows, key=lambda row: row["request_index"])
@@ -225,7 +259,7 @@ def run_triton_sweep_point(
 
     caveats: list[str] = []
     if batch_size not in (None, 1):
-        caveats.append("batch_size is unsupported for Triton yet; true batching is not wired into this path.")
+        caveats.append("batch_size is applied through Triton OpenAI completions prompt-list batching.")
     if offered_load_rps is not None:
         caveats.append("offered_load_rps pacing is applied by the benchmark runner.")
 
@@ -274,17 +308,21 @@ def run_one_sweep_point(
     model_key: str | None,
     repeats: int,
     notes: str,
+    warmup_requests: int,
 ) -> dict[str, Any]:
     runner = load_backend_runner(backend)
-    return runner(
-        sweep_type=sweep_type,
-        scenario_name=scenario_name,
-        experiment_name=experiment_name,
-        model_key=model_key,
-        repeats=repeats,
-        notes=notes,
+    runner_kwargs = {
+        "sweep_type": sweep_type,
+        "scenario_name": scenario_name,
+        "experiment_name": experiment_name,
+        "model_key": model_key,
+        "repeats": repeats,
+        "notes": notes,
         **params,
-    )
+    }
+    if backend in {"baseline_fastapi", "vllm"}:
+        runner_kwargs["warmup_requests"] = warmup_requests
+    return runner(**runner_kwargs)
 
 
 def parse_args() -> argparse.Namespace:
@@ -293,6 +331,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", required=True, choices=BACKEND_CHOICES)
     parser.add_argument("--model-key", default=None)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--warmup-requests", type=int, default=1)
     parser.add_argument("--notes", default="")
     parser.add_argument("--results-mode", choices=("debug", "main"), default="debug")
     parser.add_argument("--prompt-len", type=int, default=None)
@@ -349,6 +388,7 @@ def main() -> None:
                 model_key=args.model_key,
                 repeats=args.repeats,
                 notes=args.notes,
+                warmup_requests=args.warmup_requests,
             )
             master_csv_path, sweep_csv_path = append_sweep_row(
                 result["sweep_row"],
